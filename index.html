@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Калькулятор перевода величин</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --primary: #4a6fe3;
+      --text: #2d3440;
+      --text-muted: #8e95a5;
+      --border: #e2e6ed;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .calculator {
+      background: var(--card);
+      border-radius: 16px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+      padding: 32px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      text-align: center;
+    }
+
+    p.subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+
+    .group {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover {
+      background: #3a5bcb;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    #result {
+      margin-top: 24px;
+      padding: 16px;
+      background: #f8f9fc;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--primary);
+      display: none; /* скрыто, пока нет результата */
+    }
+
+    @media (max-width: 480px) {
+      .calculator { padding: 24px; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator">
+    <h1>Конвертер величин</h1>
+    <p class="subtitle">Переводите длину, вес, температуру и объём</p>
+
+    <div class="group">
+      <label for="type">Тип величины</label>
+      <select id="type">
+        <option value="length">Длина</option>
+        <option value="weight">Вес</option>
+        <option value="temperature">Температура</option>
+        <option value="volume">Объём</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <label for="fromUnit">Из</label>
+      <select id="fromUnit"></select>
+    </div>
+
+    <div class="group">
+      <label for="toUnit">В</label>
+      <select id="toUnit"></select>
+    </div>
+
+    <div class="group">
+      <label for="value">Значение</label>
+      <input type="number" id="value" placeholder="Например, 10" />
+    </div>
+
+    <button onclick="convert()">Перевести</button>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    // Наборы единиц
+    const units = {
+      length: [
+        { name: 'Метр', base: 1 },
+        { name: 'Километр', base: 1000 },
+        { name: 'Сантиметр', base: 0.01 },
+        { name: 'Миллиметр', base: 0.001 },
+        { name: 'Фут', base: 0.3048 },
+        { name: 'Дюйм', base: 0.0254 },
+        { name: 'Ярд', base: 0.9144 },
+      ],
+      weight: [
+        { name: 'Килограмм', base: 1 },
+        { name: 'Грамм', base: 0.001 },
+        { name: 'Тонна', base: 1000 },
+        { name: 'Фунт', base: 0.453592 },
+        { name: 'Унция', base: 0.0283495 },
+      ],
+      volume: [
+        { name: 'Литр', base: 1 },
+        { name: 'Миллилитр', base: 0.001 },
+        { name: 'Галлон (США)', base: 3.78541 },
+        { name: 'Пинта (США)', base: 0.473176 },
+        { name: 'Кубический метр', base: 1000 },
+      ],
+      temperature: [
+        { name: 'Цельсий', type: 'c' },
+        { name: 'Фаренгейт', type: 'f' },
+        { name: 'Кельвин', type: 'k' },
+      ]
+    };
+
+    const typeSelect = document.getElementById('type');
+    const fromSelect = document.getElementById('fromUnit');
+    const toSelect = document.getElementById('toUnit');
+    const valueInput = document.getElementById('value');
+    const resultDiv = document.getElementById('result');
+
+    // Заполняем списки при загрузке
+    function updateUnits() {
+      const type = typeSelect.value;
+      fromSelect.innerHTML = '';
+      toSelect.innerHTML = '';
+
+      if (type === 'temperature') {
+        units.temperature.forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.type;
+          opt.textContent = u.name;
+          fromSelect.appendChild(opt);
+          toSelect.appendChild(opt.cloneNode(true));
+        });
+      } else {
+        const list = units[type];
+        list.forEach(u => {
+          const optFrom = document.createElement('option');
+          optFrom.value = u.base;
+          optFrom.textContent = u.name;
+
+          const optTo = document.createElement('option');
+          optTo.value = u.base;
+          optTo.textContent = u.name;
+
+          fromSelect.appendChild(optFrom);
+          toSelect.appendChild(optTo);
+        });
+      }
+    }
+
+    typeSelect.addEventListener('change', updateUnits);
+
+    function convert() {
+      const type = typeSelect.value;
+      const fromVal = parseFloat(fromSelect.value);
+      const toVal = parseFloat(toSelect.value);
+      const value = parseFloat(valueInput.value);
+
+      resultDiv.style.display = 'none';
+
+      if (!value || isNaN(value)) {
+        alert('Пожалуйста, введите число');
+        return;
+      }
+
+      let result;
+
+      if (type === 'temperature') {
+        // Конвертация температур
+        const fromType = fromSelect.value; // c, f, k
+        const toType = toSelect.value;
+        let celsius;
+
+        // Переводим в Цельсий
+        if (fromType === 'c') celsius = value;
+        else if (fromType === 'f') celsius = (value - 32) * 5/9;
+        else if (fromType === 'k') celsius = value - 273.15;
+
+        // Из Цельсия в целевую шкалу
+        if (toType === 'c') result = celsius;
+        else if (toType === 'f') result = (celsius * 9/5) + 32;
+        else if (toType === 'k') result = celsius + 273.15;
+
+      } else {
+        // Обычная конвертация через базовую единицу (например, метр)
+        const baseValue = value * fromVal;
+        result = baseValue / toVal;
+      }
+
+      // Округление до 4 знаков (чтобы не было длинной дроби)
+      result = Math.round(result * 10000) / 10000;
+
+      const fromName = fromSelect.options[fromSelect.selectedIndex].text;
+      const toName = toSelect.options[toSelect.selectedIndex].text;
+
+      resultDiv.textContent = `${value} ${fromName} = ${result} ${toName}`;
+      resultDiv.style.display = 'block';
+    }
+
+    updateUnits(); // первый раз заполняем
+  </script>
+</body>
+</html>
